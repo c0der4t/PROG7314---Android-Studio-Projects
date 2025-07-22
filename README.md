@@ -1,2 +1,2 @@
-# PROG7312---Android-Studio-Projects
+# PROG7314---Android-Studio-Projects
 The projects created during class sessions

@@ -18,6 +18,7 @@ import com.github.kittinunf.fuel.core.Request
 import com.github.kittinunf.fuel.core.extensions.jsonBody
 import com.github.kittinunf.fuel.httpGet
 import com.github.kittinunf.fuel.httpPost
+import com.github.kittinunf.fuel.httpDelete
 import com.github.kittinunf.result.Result
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
@@ -67,6 +68,26 @@ class MainActivity : AppCompatActivity() {
             }
             inputIdEditText.text = null
         }
+
+        findViewById<Button>(R.id.btnDelete).setOnClickListener {
+            hideKeyboard()
+            var inputText = inputIdEditText.text.toString()
+            if (inputText.isNotEmpty()) {
+                try {
+                    // Try to convert the input to an integer
+                    val idAsInt = inputText.toInt()
+                    deleteLoanById(idAsInt)
+                } catch (e: NumberFormatException) {
+                    Toast.makeText(
+                        this,
+                        "Please enter a valid numeric Loan ID.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            inputIdEditText.text = null
+        }
+
 
         findViewById<Button>(R.id.btnGetByMember).setOnClickListener {
             hideKeyboard()
@@ -298,63 +319,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    private fun createNEwLoan_old() {
+    private fun deleteLoanById(Id: Int) {
 
         // Define the API endpoint URL.
-        val url = "https://opsc.azurewebsites.net/loans/"
-        outputTextView.text = "Creating new loan"
+        val url = "https://opsc.azurewebsites.net/loans/$Id"
+        outputTextView.text = "Deleting loan with ID: $Id..."
 
         // Execute the network request on a background thread.
         executor.execute {
-
-            // Create a new loan object and serialize it to JSON
-            val newLoan = LoanPost("15.99", "M6001", "Added by the Android app")
-            val jsonBodyData = Gson().toJson(newLoan)
-
-            Log.d("monte", "Json body I am sending ${jsonBodyData}")
-            var newRequest: Request = url.httpPost()
-            newRequest.jsonBody(jsonBodyData)
-            Log.d("monte", "Request: ${newRequest.toString()}")
-
-            newRequest.responseString { _, response, result ->
+            // Use Fuel's httpDelete for a delete request
+            url.httpDelete().responseString { _, response, _ ->
                 // Switch to the main thread to update the UI.
                 handler.post {
 
-                    when (result) {
-
-                        is Result.Success -> {
-
-                            if (response.statusCode == 201) {
-                                // On success, deserialize the JSON string into a list of loan objects.
-                                try {
-                                    val createdLoan =
-                                        Gson().fromJson(result.get(), Loan::class.java)
-                                    outputTextView.text = "Successfully created loan: \n\n" +
-                                            "Loan ID: ${createdLoan.loanID}\n\n" +
-                                            "Amount: ${createdLoan.amount}"
-                                } catch (e: JsonSyntaxException) {
-                                    // Handle cases where the server response is not valid.
-                                    Log.e("CreateNewLoan", "JSON parsing error: ${e.message}")
-                                    outputTextView.text = "Error: Could not parse server response."
-
-                                }
-                            } else {
-                                outputTextView.text =
-                                    "Failed to create loan. Status: ${response.statusCode}"
-
-                            }
+                    when (response.statusCode) {
+                        204 -> {
+                           outputTextView.text = "Successfully deleted loan with ID: $Id"
                         }
 
-                        is Result.Failure -> {
+                        404 -> {
                             // On failure, log the error and show a user-friendly message.
-                            val ex = result.getException()
-                            Log.e(
-                                "GetAllLoans",
-                                "API Error: ${ex.message}\n\nAPI Response: ${response.toString()}"
-                            )
-                            outputTextView.text =
-                                "API Error. Please check logs.\n\nAPI Response: ${response.toString()}\n\nResult: ${result.toString()}"
+                            outputTextView.text = "Loan with ID ${Id} not found."
+                        }
+
+                        else -> {
+                            Log.e("DeleteLoanById", "API Error: Stauts code ${response.statusCode}")
+                            outputTextView.text = "Error: Could not delete loan. Status: ${response.statusCode}"
                         }
                     }
                 }
